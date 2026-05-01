@@ -1,0 +1,16 @@
+{
+  "name": "@pokebox/backend",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "PokeBox Platform Backend API",
+  "private": true,
+  "scripts": {
+    "dev": "node src/index.js",
+    "build": "echo 'Backend build'",
+    "start": "node src/index.js"
+  },
+  "keywords": ["pokebox", "api"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {}
+}
