@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../../utils/supabase/client';
 import { Card } from '../ui/Card';
-import { CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 export function SupabaseStatus() {
   const [status, setStatus] = useState<'checking' | 'connected' | 'error' | 'disabled'>('checking');
@@ -15,38 +15,28 @@ export function SupabaseStatus() {
     // Check if Supabase is configured
     if (!isSupabaseConfigured || !supabase) {
       setStatus('disabled');
-      setMessage('⚠️ Supabase no configurado. Usando almacenamiento local (localStorage).');
+      setMessage('⚠️ Supabase no configurado');
       return;
     }
 
     try {
-      // Try to connect to Supabase
-      const { data, error } = await supabase.from('users').select('count').limit(1);
+      // Try to get current session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (error) {
-        // Check if it's a table not found error (expected before running schema)
-        if (error.message.includes('relation') || error.message.includes('does not exist')) {
-          setStatus('error');
-          setMessage('⚠️ Conexión OK pero las tablas no están creadas. ¡Ejecuta schema.sql en el SQL Editor de Supabase!');
-        } else if (error.message.includes('JWT') || error.message.includes('API key')) {
-          setStatus('disabled');
-          setMessage('⚠️ API key de Supabase inválida. Usando localStorage. Ve a Settings > API en tu proyecto Supabase para obtener la clave correcta.');
-        } else {
-          setStatus('error');
-          setMessage(`Error: ${error.message}`);
-        }
+      setStatus('connected');
+      if (session) {
+        setMessage(`✅ Conectado como ${session.user.email}`);
       } else {
-        setStatus('connected');
-        setMessage('✅ Supabase conectado correctamente!');
+        setMessage('✅ Supabase conectado correctamente');
       }
     } catch (error: any) {
-      setStatus('disabled');
-      setMessage(`⚠️ Error de conexión. Usando localStorage como fallback.`);
+      setStatus('error');
+      setMessage(`❌ Error: ${error.message}`);
     }
   };
 
   if (status === 'checking') {
-    return null; // Don't show while checking
+    return null;
   }
 
   // Don't show if everything is working
@@ -54,58 +44,22 @@ export function SupabaseStatus() {
     return null;
   }
 
+  const iconColor = status === 'disabled' ? 'text-blue-400' : status === 'error' ? 'text-red-400' : 'text-yellow-400';
+  const borderColor = status === 'disabled' ? 'border-blue-500/50' : status === 'error' ? 'border-red-500/50' : 'border-yellow-500/50';
+  const bgColor = status === 'disabled' ? 'bg-blue-950/50' : status === 'error' ? 'bg-red-950/50' : 'bg-yellow-950/50';
+
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-md">
-      <Card className={`border-2 ${
-        status === 'connected' 
-          ? 'border-green-500/50 bg-green-950/50' 
-          : status === 'disabled'
-          ? 'border-blue-500/50 bg-blue-950/50'
-          : 'border-yellow-500/50 bg-yellow-950/50'
-      }`}>
+      <Card className={`border-2 ${borderColor} ${bgColor} p-3`}>
         <div className="flex items-start gap-3">
-          {status === 'checking' && (
-            <Loader2 className="w-5 h-5 text-blue-400 animate-spin flex-shrink-0" />
-          )}
-          {status === 'connected' && (
-            <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
-          )}
           {status === 'disabled' && (
-            <AlertTriangle className="w-5 h-5 text-blue-400 flex-shrink-0" />
+            <AlertTriangle className={`w-5 h-5 ${iconColor} flex-shrink-0`} />
           )}
           {status === 'error' && (
-            <XCircle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+            <XCircle className={`w-5 h-5 ${iconColor} flex-shrink-0`} />
           )}
           <div className="flex-1 min-w-0">
-            <div className="text-sm text-white mb-1">
-              {status === 'checking' && 'Verificando conexión a Supabase...'}
-              {status === 'connected' && 'Base de Datos Conectada'}
-              {status === 'disabled' && 'Modo Local Activo'}
-              {status === 'error' && 'Configuración de Base de Datos Requerida'}
-            </div>
-            <div className="text-xs text-gray-300 break-words">
-              {message}
-            </div>
-            {status === 'error' && message.includes('tablas') && (
-              <a 
-                href="https://app.supabase.com/project/inubqjubhocnfkawziqx/sql/new"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-2 text-xs bg-yellow-500 text-black px-3 py-1 rounded hover:bg-yellow-400 transition-colors"
-              >
-                Abrir SQL Editor →
-              </a>
-            )}
-            {status === 'disabled' && message.includes('API key') && (
-              <a 
-                href="https://app.supabase.com/project/inubqjubhocnfkawziqx/settings/api"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-2 text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-400 transition-colors"
-              >
-                Ver API Settings →
-              </a>
-            )}
+            <p className="text-sm text-white">{message}</p>
           </div>
         </div>
       </Card>

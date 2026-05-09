@@ -5,7 +5,7 @@ import type { Item } from '../../context/AuthContext';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { getRarityColor, getRarityGlow } from '../../utils/caseItems';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import {
   Truck, Home, Package, CheckCircle, Clock, MapPin,
   Phone, Mail, User, Search, ChevronDown, Star,

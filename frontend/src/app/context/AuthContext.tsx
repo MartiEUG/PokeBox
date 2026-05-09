@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../utils/supabase/client';
 import { Session } from '@supabase/supabase-js';
 
 interface User {
@@ -42,15 +42,41 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Initialize from localStorage immediately
+  const getInitialAuthState = () => {
+    const localSession = localStorage.getItem('pokebox_session');
+    if (localSession) {
+      try {
+        const user = JSON.parse(localSession);
+        return { user, isAuthenticated: true, loading: false };
+      } catch (e) {
+        return { user: null, isAuthenticated: false, loading: true };
+      }
+    }
+    return { user: null, isAuthenticated: false, loading: true };
+  };
+
+  const initialState = getInitialAuthState();
+  const [user, setUser] = useState<User | null>(initialState.user);
+  const [isAuthenticated, setIsAuthenticated] = useState(initialState.isAuthenticated);
+  const [loading, setLoading] = useState(initialState.loading);
   const [inventory, setInventory] = useState<Item[]>([]);
 
   // Check for existing session on mount
   useEffect(() => {
-    if (isSupabaseConfigured && supabase) {
-      // Use Supabase
+    // If already authenticated from localStorage, load inventory and verify with Supabase if configured
+    if (isAuthenticated && user) {
+      loadLocalInventory(user.id);
+      
+      // Try to verify with Supabase if configured
+      if (supabase && isSupabaseConfigured) {
+        supabase.auth.getSession().catch(err => console.warn('Supabase session check failed:', err));
+      }
+      return;
+    }
+
+    // Otherwise try Supabase
+    if (supabase && isSupabaseConfigured) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
           fetchUserProfile(session.user.id);
@@ -74,23 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return () => subscription.unsubscribe();
     } else {
-      // Use localStorage fallback
-      const sessionToken = localStorage.getItem('pokebox_session');
-      if (sessionToken) {
-        const userId = sessionToken;
-        const users = JSON.parse(localStorage.getItem('pokebox_users') || '[]');
-        const foundUser = users.find((u: User) => u.id === userId);
-        if (foundUser) {
-          setUser(foundUser);
-          setIsAuthenticated(true);
-          loadLocalInventory(userId);
-        } else {
-          localStorage.removeItem('pokebox_session');
-        }
-      }
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, user, supabase, isSupabaseConfigured]);
 
   // Load inventory when user changes
   useEffect(() => {
@@ -162,89 +174,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (isSupabaseConfigured && supabase) {
         // Use Supabase
-        // Check if username already exists
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('username')
-          .eq('username', username)
-          .single();
+        try {
+          // Check if username already exists
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('username')
+            .eq('username', username)
+            .single();
 
-        if (existingUser) {
-          return { success: false, message: 'Username already taken' };
-        }
-
-        // Sign up with Supabase Auth
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username,
-            },
-          },
-        });
-
-        if (signUpError) {
-          if (signUpError.message.includes('already registered')) {
-            return { success: false, message: 'Email already registered' };
+          if (existingUser) {
+            return { success: false, message: 'Username already taken' };
           }
-          return { success: false, message: signUpError.message };
+
+          // Sign up with Supabase Auth
+          const { data: authData, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                username: username,
+              },
+            },
+          });
+
+          if (signUpError) {
+            if (signUpError.message.includes('already registered')) {
+              return { success: false, message: 'Email already registered' };
+            }
+            throw signUpError;
+          }
+
+          if (!authData.user) {
+            return { success: false, message: 'Registration failed. Please try again.' };
+          }
+
+          // Update the user profile with the username
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ username })
+            .eq('id', authData.user.id);
+
+          if (updateError) {
+            console.error('Error updating username:', updateError);
+          }
+
+          // Fetch the complete profile
+          await fetchUserProfile(authData.user.id);
+
+          return { success: true, message: 'Registration successful!' };
+        } catch (supabaseError) {
+          console.warn('Supabase registration failed, trying localStorage:', supabaseError);
+          // Fall through to localStorage
         }
-
-        if (!authData.user) {
-          return { success: false, message: 'Registration failed. Please try again.' };
-        }
-
-        // Update the user profile with the username
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ username })
-          .eq('id', authData.user.id);
-
-        if (updateError) {
-          console.error('Error updating username:', updateError);
-        }
-
-        // Fetch the complete profile
-        await fetchUserProfile(authData.user.id);
-
-        return { success: true, message: 'Registration successful!' };
-      } else {
-        // Use localStorage fallback
-        const users = JSON.parse(localStorage.getItem('pokebox_users') || '[]');
-
-        const emailExists = users.some((u: User) => u.email.toLowerCase() === email.toLowerCase());
-        if (emailExists) {
-          return { success: false, message: 'Email already registered' };
-        }
-
-        const usernameExists = users.some((u: User) => u.username.toLowerCase() === username.toLowerCase());
-        if (usernameExists) {
-          return { success: false, message: 'Username already taken' };
-        }
-
-        const newUser: User = {
-          id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          username,
-          email,
-          createdAt: new Date().toISOString(),
-          balance: 1000,
-          level: 1,
-        };
-
-        const passwords = JSON.parse(localStorage.getItem('pokebox_passwords') || '{}');
-        passwords[newUser.id] = password;
-        localStorage.setItem('pokebox_passwords', JSON.stringify(passwords));
-
-        users.push(newUser);
-        localStorage.setItem('pokebox_users', JSON.stringify(users));
-
-        localStorage.setItem('pokebox_session', newUser.id);
-        setUser(newUser);
-        setIsAuthenticated(true);
-
-        return { success: true, message: 'Registration successful!' };
       }
+
+      // Use localStorage fallback
+      const users = JSON.parse(localStorage.getItem('pokebox_users') || '[]');
+
+      const emailExists = users.some((u: User) => u.email.toLowerCase() === email.toLowerCase());
+      if (emailExists) {
+        return { success: false, message: 'Email already registered' };
+      }
+
+      const usernameExists = users.some((u: User) => u.username.toLowerCase() === username.toLowerCase());
+      if (usernameExists) {
+        return { success: false, message: 'Username already taken' };
+      }
+
+      const newUser: User = {
+        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        username,
+        email,
+        createdAt: new Date().toISOString(),
+        balance: 1000,
+        level: 1,
+      };
+
+      const passwords = JSON.parse(localStorage.getItem('pokebox_passwords') || '{}');
+      passwords[newUser.id] = password;
+      localStorage.setItem('pokebox_passwords', JSON.stringify(passwords));
+
+      users.push(newUser);
+      localStorage.setItem('pokebox_users', JSON.stringify(users));
+
+      localStorage.setItem('pokebox_session', JSON.stringify(newUser));
+      setUser(newUser);
+      setIsAuthenticated(true);
+
+      return { success: true, message: 'Registration successful!' };
     } catch (error) {
       console.error('Registration error:', error);
       return { success: false, message: 'Registration failed. Please try again.' };
@@ -258,50 +275,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       if (isSupabaseConfigured && supabase) {
         // Use Supabase
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            return { success: false, message: 'Invalid email or password' };
+          if (error) {
+            if (error.message.includes('Invalid login credentials')) {
+              return { success: false, message: 'Invalid email or password' };
+            }
+            // If Supabase fails, fall back to localStorage
+            throw new Error(error.message);
           }
-          return { success: false, message: error.message };
+
+          if (!data.user) {
+            return { success: false, message: 'Login failed. Please try again.' };
+          }
+
+          await fetchUserProfile(data.user.id);
+          return { success: true, message: 'Login successful!' };
+        } catch (supabaseError) {
+          console.warn('Supabase login failed, trying localStorage:', supabaseError);
+          // Fall through to localStorage
         }
-
-        if (!data.user) {
-          return { success: false, message: 'Login failed. Please try again.' };
-        }
-
-        await fetchUserProfile(data.user.id);
-
-        return { success: true, message: 'Login successful!' };
-      } else {
-        // Use localStorage fallback
-        const users = JSON.parse(localStorage.getItem('pokebox_users') || '[]');
-        const passwords = JSON.parse(localStorage.getItem('pokebox_passwords') || '{}');
-
-        const foundUser = users.find(
-          (u: User) =>
-            u.email.toLowerCase() === email.toLowerCase() ||
-            u.username.toLowerCase() === email.toLowerCase()
-        );
-
-        if (!foundUser) {
-          return { success: false, message: 'User not found' };
-        }
-
-        if (passwords[foundUser.id] !== password) {
-          return { success: false, message: 'Incorrect password' };
-        }
-
-        localStorage.setItem('pokebox_session', foundUser.id);
-        setUser(foundUser);
-        setIsAuthenticated(true);
-
-        return { success: true, message: 'Login successful!' };
       }
+
+      // Use localStorage fallback
+      const users = JSON.parse(localStorage.getItem('pokebox_users') || '[]');
+      const passwords = JSON.parse(localStorage.getItem('pokebox_passwords') || '{}');
+
+      const foundUser = users.find(
+        (u: User) =>
+          u.email.toLowerCase() === email.toLowerCase() ||
+          u.username.toLowerCase() === email.toLowerCase()
+      );
+
+      if (!foundUser) {
+        return { success: false, message: 'User not found' };
+      }
+
+      if (passwords[foundUser.id] !== password) {
+        return { success: false, message: 'Incorrect password' };
+      }
+
+      localStorage.setItem('pokebox_session', JSON.stringify(foundUser));
+      setUser(foundUser);
+      setIsAuthenticated(true);
+      loadLocalInventory(foundUser.id);
+
+      return { success: true, message: 'Login successful!' };
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, message: 'Login failed. Please try again.' };
@@ -311,9 +334,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (isSupabaseConfigured && supabase) {
       await supabase.auth.signOut();
-    } else {
-      localStorage.removeItem('pokebox_session');
     }
+    localStorage.removeItem('pokebox_session');
+    localStorage.removeItem('pokebox_users');
+    localStorage.removeItem('pokebox_passwords');
     setUser(null);
     setIsAuthenticated(false);
     setInventory([]);

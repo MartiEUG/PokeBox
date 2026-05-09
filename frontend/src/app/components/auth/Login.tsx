@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Mail, Lock, Zap, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
 
@@ -16,10 +16,12 @@ export function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate('/dashboard');
-  }
+  // Redirect if already authenticated (using effect, not render)
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

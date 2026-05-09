@@ -1,6 +1,4 @@
 import { Link } from 'react-router-dom';
-import { Facebook, Twitter, Instagram, Youtube, Mail } from 'lucide-react';
-import logo from 'figma:asset/6e863f4494a0b578dad3289d366d63fdcde5ae2f.png';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -12,11 +10,10 @@ export function Footer() {
           {/* Company Info */}
           <div>
             <Link to="/" className="inline-block mb-4">
-              <img 
-                src={logo} 
-                alt="PokeBox Logo" 
-                className="h-16 w-auto"
-              />
+              <div className="flex items-center gap-2">
+                <span className="text-3xl">🎮</span>
+                <span className="text-xl font-bold bg-gradient-to-r from-[var(--neon-yellow)] to-[var(--neon-blue)] bg-clip-text text-transparent">PokeBox</span>
+              </div>
             </Link>
             <p className="text-gray-400">
               The ultimate gaming loot-box platform. Open cases, battle friends, and collect rare items.
@@ -25,7 +22,7 @@ export function Footer() {
           
           {/* Quick Links */}
           <div>
-            <h4 className="mb-4 text-white">Quick Links</h4>
+            <h4 className="mb-4 text-white font-semibold">Quick Links</h4>
             <ul className="space-y-2">
               <li><Link to="/support" className="text-gray-400 hover:text-[var(--neon-blue)] transition-colors">Support</Link></li>
               <li><Link to="/faq" className="text-gray-400 hover:text-[var(--neon-blue)] transition-colors">FAQ</Link></li>
@@ -36,7 +33,7 @@ export function Footer() {
           
           {/* Resources */}
           <div>
-            <h4 className="mb-4 text-white">Resources</h4>
+            <h4 className="mb-4 text-white font-semibold">Resources</h4>
             <ul className="space-y-2">
               <li><Link to="/how-it-works" className="text-gray-400 hover:text-[var(--neon-blue)] transition-colors">How It Works</Link></li>
               <li><Link to="/provably-fair" className="text-gray-400 hover:text-[var(--neon-blue)] transition-colors">Provably Fair</Link></li>
@@ -47,22 +44,22 @@ export function Footer() {
           
           {/* Social Media */}
           <div>
-            <h4 className="mb-4 text-white">Connect With Us</h4>
+            <h4 className="mb-4 text-white font-semibold">Connect With Us</h4>
             <div className="flex gap-3">
               <a href="#" className="w-10 h-10 bg-[var(--dark-hover)] rounded-lg flex items-center justify-center hover:bg-[var(--neon-blue)] transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,212,255,0.5)]">
-                <Facebook className="w-5 h-5" />
+                <span className="text-lg">f</span>
               </a>
               <a href="#" className="w-10 h-10 bg-[var(--dark-hover)] rounded-lg flex items-center justify-center hover:bg-[var(--neon-blue)] transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,212,255,0.5)]">
-                <Twitter className="w-5 h-5" />
+                <span className="text-lg">𝕏</span>
               </a>
               <a href="#" className="w-10 h-10 bg-[var(--dark-hover)] rounded-lg flex items-center justify-center hover:bg-[var(--neon-blue)] transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,212,255,0.5)]">
-                <Instagram className="w-5 h-5" />
+                <span className="text-lg">📷</span>
               </a>
               <a href="#" className="w-10 h-10 bg-[var(--dark-hover)] rounded-lg flex items-center justify-center hover:bg-[var(--neon-blue)] transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,212,255,0.5)]">
-                <Youtube className="w-5 h-5" />
+                <span className="text-lg">▶️</span>
               </a>
               <a href="#" className="w-10 h-10 bg-[var(--dark-hover)] rounded-lg flex items-center justify-center hover:bg-[var(--neon-blue)] transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,212,255,0.5)]">
-                <Mail className="w-5 h-5" />
+                <span className="text-lg">✉️</span>
               </a>
             </div>
           </div>

@@ -19,7 +19,7 @@ import {
   Minus,
 } from 'lucide-react';
 import { getRarityColor, getRarityGlow, caseItemPools } from '../../utils/caseItems';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 // Build the global trade catalog from all case item pools
 interface CatalogItem {
